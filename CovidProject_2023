@@ -99,7 +99,7 @@ FROM CovidDeath$
 WHERE continent IS NOT NULL 
 ORDER BY 1 ASC
 
---Looking at Total Population vs Vaccination
+--Looking at Total Population vs Total Vaccinations
 --Needed to convert int -> bigint since it gave an arithmetic overflow error
 --OVER PARTITION allows me to SUM over by a certain location it restarts at a new country and rolls over the #'s everyday.
 
@@ -111,7 +111,7 @@ SELECT vac.continent,
 	vac.date,
 	dea.population,
 	vac.new_vaccinations,
-	SUM(CONVERT(bigint,vac.new_vaccinations)) OVER (PARTITION BY dea.location ORDER BY dea.location,dea.date) AS RollingPeopleVaccinated
+	SUM(CONVERT(bigint,vac.new_vaccinations)) OVER (PARTITION BY dea.location ORDER BY dea.location,dea.date) AS TotalNumberVaccinations
 FROM CovidVac$ Vac 
 JOIN CovidDeath$ Dea
 ON vac.location = dea.location AND vac.date = dea.date
