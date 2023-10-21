@@ -34,8 +34,8 @@ ORDER BY 1,2
 
 --Looking at Total Cases vs Population
 --Shows what percentage of population got covid
---Needed to convert total_cases to floats since they are currently nvarchar. Can't max a nvarchar
---Can you use cast instead. ex: CAST(total_cases AS INT)
+--Needed to convert total_cases to floats since they are currently nvarchar. Can't divide a nvarchar
+--You can use cast instead. ex: CAST(total_cases AS INT)
 
 SELECT location, 
 	date, 
