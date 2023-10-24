@@ -52,7 +52,7 @@ WHERE continent IS NOT NULL
 GROUP BY location
 ORDER BY DeathPercentage DESC
 
---Percentage of people vacinated in each country.
+--Percentage of people vaccinated in each country.
 
 SELECT d.location,
 	d.population,
