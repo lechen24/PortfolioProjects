@@ -1,217 +1,91 @@
-SELECT *
-FROM CovidDeath$
-WHERE continent IS NOT NULL
-ORDER BY 3,4
+--Questions we want to answer:
+--Global Numbers.
+--Which country has the highest number of cases, the highest number of deaths, and death percentage?
+--Percentage of people vacinated in each country.
+--Predictive modeling for cases and deaths.
+--Rolling period for total number of cases compared to total population.
 
---SELECT *
---FROM CovidVac$
---ORDER BY 3,4
---Need to include continent is not null otherwise, locations like "world", "low income", etc shows up
-
--- Select data that we are going to be using
-
-SELECT location, 
-	date, 
-	total_cases, 
-	new_cases, 
-	total_deaths, 
-	population
-FROM CovidDeath$
-WHERE continent IS NOT NULL
-ORDER BY 1,2
-
---Looking at Total Cases vs Total Deaths
---Shows likelihood of dying if you contract covid in your country
-SELECT location, 
-	date, 
-	total_cases, 
-	new_cases, 
-	total_deaths, 
-	(CONVERT(float, total_deaths) / NULLIF(CONVERT(float, total_cases), 0)) * 100 AS Deathpercentage
-FROM CovidDeath$
-WHERE location LIKE '%states%' AND continent IS NOT NULL
-ORDER BY 1,2
-
---Looking at Total Cases vs Population
---Shows what percentage of population got covid
---Needed to convert total_cases to floats since they are currently nvarchar. Can't divide a nvarchar
---You can use cast instead. ex: CAST(total_cases AS INT)
-
-SELECT location, 
-	date, 
-	population,
-	total_cases, 
-	(CONVERT(float, total_cases) / NULLIF(CONVERT(float, population), 0)) * 100 AS Deathpercentage
-FROM CovidDeath$
-WHERE continent IS NOT NULL
-ORDER BY 1,2
-
---Looking at Countries with Highest Infection Rate compared to Population
---Needed to convert total_cases to floats since they are currently nvarchar. Can't max a nvarchar
-
-SELECT location,
-	population,
-	MAX(CONVERT(float, total_cases)) AS HighestInfectionCount,
-	MAX(CONVERT(float, total_cases)/ population) * 100 AS PercentPopulationInfected
-FROM CovidDeath$
-WHERE continent IS NOT NULL
-GROUP BY location, population
-ORDER BY 4 DESC
-
---Showing Countries with Highest Death Count per Population
-
-SELECT location,
-	population,
-	MAX(CONVERT(float, total_deaths)) AS TotalDeathCount
-FROM CovidDeath$
-WHERE continent IS NOT NULL
-GROUP BY location, population
-ORDER BY 3 DESC
-
-
---Showing continents with the highest death count 
-
-SELECT location,
-	MAX(CONVERT(float, total_deaths)) AS TotalDeathCount
-FROM CovidDeath$
-WHERE continent IS NULL
-GROUP BY location
-ORDER BY 2 DESC
-
-
---Global Numbers by date
---Needed to convert the date into datetime. Needed cases <> 0 otherwise div 0 error.
-SELECT date, 
-	SUM(new_cases) AS TotalCases, 
-	SUM(new_deaths) AS TotalDeaths,
-	SUM(new_deaths)/SUM(new_cases) * 100 AS Deathpercentage
-FROM CovidDeath$
-WHERE continent IS NOT NULL 
-GROUP BY date
-HAVING date >= CONVERT(datetime, '2020-01-23') AND SUM(new_cases) <> 0
-ORDER BY 1 ASC
-
---Global Numbers in Total
+--Global Numbers
+--Incorporated continent IS NOT NULL to avoid duplicate data
 SELECT SUM(new_cases) AS TotalCases, 
 	SUM(new_deaths) AS TotalDeaths,
-	SUM(new_deaths)/SUM(new_cases) * 100 AS Deathpercentage
+	SUM(new_deaths)/SUM(new_cases) * 100 AS DeathPercentage
 FROM CovidDeath$
 WHERE continent IS NOT NULL 
 ORDER BY 1 ASC
 
---Looking at Total Population vs Total Vaccinations
---Needed to convert int -> bigint since it gave an arithmetic overflow error
---OVER PARTITION allows me to SUM over by a certain location it restarts at a new country and rolls over the #'s everyday.
-
-SELECT *
-FROM CovidVac$ Vac 
-
-SELECT vac.continent,
-	vac.location,
-	vac.date,
-	dea.population,
-	vac.new_vaccinations,
-	SUM(CONVERT(bigint,vac.new_vaccinations)) OVER (PARTITION BY dea.location ORDER BY dea.location,dea.date) AS TotalNumberVaccinations
-FROM CovidVac$ Vac 
-JOIN CovidDeath$ Dea
-ON vac.location = dea.location AND vac.date = dea.date
-WHERE dea.continent IS NOT NULL
-ORDER BY 2,3
-
---USE CTE
-
-WITH PopvsVac (continent, location, date, population, new_vaccinations, rollingpeoplevaccinated)
-AS
-(
-SELECT vac.continent,
-	vac.location,
-	vac.date,
-	dea.population,
-	vac.new_vaccinations,
-	SUM(CONVERT(bigint,vac.new_vaccinations)) OVER (PARTITION BY dea.location ORDER BY dea.location,dea.date) AS RollingPeopleVaccinated
-FROM CovidVac$ Vac 
-JOIN CovidDeath$ Dea
-ON vac.location = dea.location AND vac.date = dea.date
-WHERE dea.continent IS NOT NULL
-)
-SELECT *, (rollingpeoplevaccinated/population) * 100
-FROM PopvsVac
-
---Creating View to store data for later visulizations
-
-CREATE VIEW PopvsVac AS
-SELECT vac.continent,
-	vac.location,
-	vac.date,
-	dea.population,
-	vac.new_vaccinations,
-	SUM(CONVERT(bigint,vac.new_vaccinations)) OVER (PARTITION BY dea.location ORDER BY dea.location,dea.date) AS RollingPeopleVaccinated
-FROM CovidVac$ Vac 
-JOIN CovidDeath$ Dea
-ON vac.location = dea.location AND vac.date = dea.date
-WHERE dea.continent IS NOT NULL
-
-SELECT *
-FROM PopvsVac
-
-
---Total death count in each continent
-
+--Which country has the highest number of cases, the highest number of deaths, and death percentage?
+--Needed CASE for the divide by 0 error when SUM(new_cases) = 0
 SELECT location,
-	SUM(CAST(new_deaths AS INT)) AS TotalDeathCount 
+	SUM(new_cases) AS TotalCases,
+	SUM(new_deaths) AS TotalDeaths,
+	CASE 
+		WHEN SUM(new_cases) <> 0 THEN SUM(new_deaths)/SUM(new_cases) * 100 
+		WHEN SUM(new_cases) = 0 THEN 0
+	END AS DeathPercentage
 FROM CovidDeath$
-WHERE continent IS NULL
-AND location NOT IN ('World', 
-			'European Union', 
-			'International', 
-			'High income', 
-			'Upper middle income', 
-			'Lower middle income', 
-			'Low income')
+WHERE continent IS NOT NULL
 GROUP BY location
-ORDER BY TotalDeathCount DESC
-
---Percent of population infected in each country.
+ORDER BY TotalCases DESC
 
 SELECT location,
-	population,
-	MAX(CONVERT(int,total_cases)) AS HighestInfectionCount,
-	MAX((total_cases/population))*100 AS PercentPopulationInfected
+	SUM(new_cases) AS TotalCases,
+	SUM(new_deaths) AS TotalDeaths,
+	CASE 
+		WHEN SUM(new_cases) <> 0 THEN SUM(new_deaths)/SUM(new_cases) * 100 
+		WHEN SUM(new_cases) = 0 THEN 0
+	END AS DeathPercentage
 FROM CovidDeath$
-GROUP BY location, 
-	population
-ORDER BY PercentPopulationInfected DESC
-
---Percent of population infected in each country with rolling date.
+WHERE continent IS NOT NULL
+GROUP BY location
+ORDER BY TotalDeaths DESC
 
 SELECT location,
-	population,
-	date,
-	MAX(CONVERT(int,total_cases)) AS HighestInfectionCount,
-	MAX((total_cases/population)) * 100 AS PercentPopulationInfected
+	SUM(new_cases) AS TotalCases,
+	SUM(new_deaths) AS TotalDeaths,
+	CASE 
+		WHEN SUM(new_cases) <> 0 THEN SUM(new_deaths)/SUM(new_cases) * 100 
+		WHEN SUM(new_cases) = 0 THEN 0
+	END AS DeathPercentage
 FROM CovidDeath$
-GROUP BY location, 
-	population, 
-	date
-ORDER BY PercentPopulationInfected DESC
+WHERE continent IS NOT NULL
+GROUP BY location
+ORDER BY DeathPercentage DESC
 
---Top country in each continent with highest percent population infected
+--Percentage of people vacinated in each country.
 
-SELECT location,
-	continent,
-	population,
-	MAX(CONVERT(int,total_cases)) AS HighestInfectionCount,
-	MAX((total_cases/population)) * 100 AS PercentPopulationInfected
+SELECT d.location,
+	d.population,
+	MAX(CAST(v.people_fully_vaccinated AS BIGINT)) AS FullyVaccinated,
+	MAX(CAST(v.people_fully_vaccinated AS BIGINT))/d.population * 100 AS PercentFullyVaccinated
+FROM CovidDeath$ d
+JOIN CovidVac$ v
+ON d.location = v.location AND d.date = v.date
+GROUP BY d.location, d.population
+ORDER BY PercentFullyVaccinated DESC
+
+--Predictive modeling for cases and deaths.
+
+SELECT date,
+	location,
+	new_cases
 FROM CovidDeath$
-WHERE continent IN ('Europe',
-			'North America',
-			'South America',
-			'Africa',
-			'Asia',
-			'Oceania')
-GROUP BY location, 
-	population,
-	continent
-ORDER BY continent ASC, 
-	population DESC, 
-	PercentPopulationInfected DESC
+WHERE continent IS NOT NULL
+
+--Rolling period for total number of cases compared to total population.
+
+WITH cases_vs_population (location, date, population, new_cases, total_number_cases)
+AS (
+SELECT v.location,
+	v.date,
+	d.population,
+	d.new_cases,
+	SUM(CONVERT(bigint,d.new_cases)) OVER (PARTITION BY d.location ORDER BY d.location,d.date) AS total_number_cases
+FROM CovidVac$ v 
+JOIN CovidDeath$ d
+ON v.location = d.location AND v.date = d.date
+WHERE d.continent IS NOT NULL
+)
+SELECT *, (total_number_cases/population) * 100 AS percent_cases_vs_population
+FROM cases_vs_population
+ORDER BY 6 DESC
