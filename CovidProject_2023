@@ -20,8 +20,8 @@ SELECT location,
 	SUM(new_cases) AS TotalCases,
 	SUM(new_deaths) AS TotalDeaths,
 	CASE 
-		WHEN SUM(new_cases) <> 0 THEN SUM(new_deaths)/SUM(new_cases) * 100 
-		WHEN SUM(new_cases) = 0 THEN 0
+		WHEN SUM(new_cases) = 0 THEN 0  
+		ELSE SUM(new_deaths)/SUM(new_cases) * 100
 	END AS DeathPercentage
 FROM CovidDeath$
 WHERE continent IS NOT NULL
@@ -32,8 +32,8 @@ SELECT location,
 	SUM(new_cases) AS TotalCases,
 	SUM(new_deaths) AS TotalDeaths,
 	CASE 
-		WHEN SUM(new_cases) <> 0 THEN SUM(new_deaths)/SUM(new_cases) * 100 
-		WHEN SUM(new_cases) = 0 THEN 0
+		WHEN SUM(new_cases) = 0 THEN 0  
+		ELSE SUM(new_deaths)/SUM(new_cases) * 100
 	END AS DeathPercentage
 FROM CovidDeath$
 WHERE continent IS NOT NULL
@@ -44,25 +44,28 @@ SELECT location,
 	SUM(new_cases) AS TotalCases,
 	SUM(new_deaths) AS TotalDeaths,
 	CASE 
-		WHEN SUM(new_cases) <> 0 THEN SUM(new_deaths)/SUM(new_cases) * 100 
-		WHEN SUM(new_cases) = 0 THEN 0
+		WHEN SUM(new_cases) = 0 THEN 0  
+		ELSE SUM(new_deaths)/SUM(new_cases) * 100
 	END AS DeathPercentage
 FROM CovidDeath$
 WHERE continent IS NOT NULL
 GROUP BY location
 ORDER BY DeathPercentage DESC
 
---Percentage of people vaccinated in each country.
+--Percentage of people not fully vaccinated in each country.
 
 SELECT d.location,
 	d.population,
 	MAX(CAST(v.people_fully_vaccinated AS BIGINT)) AS FullyVaccinated,
-	MAX(CAST(v.people_fully_vaccinated AS BIGINT))/d.population * 100 AS PercentFullyVaccinated
+	CASE 
+		WHEN MAX(CAST(v.people_fully_vaccinated AS BIGINT))/d.population * 100 > 100 THEN 0
+		ELSE 100 - MAX(CAST(v.people_fully_vaccinated AS BIGINT))/d.population * 100
+	END AS PercentNotFullyVaccinated
 FROM CovidDeath$ d
 JOIN CovidVac$ v
 ON d.location = v.location AND d.date = v.date
 GROUP BY d.location, d.population
-ORDER BY PercentFullyVaccinated DESC
+ORDER BY PercentNotFullyVaccinated DESC
 
 --Predictive modeling for cases and deaths.
 
