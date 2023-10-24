@@ -43,7 +43,7 @@ SELECT location,
 	total_cases, 
 	(CONVERT(float, total_cases) / NULLIF(CONVERT(float, population), 0)) * 100 AS Deathpercentage
 FROM CovidDeath$
-WHERE location LIKE '%zIMBabwe%'AND continent IS NOT NULL
+WHERE continent IS NOT NULL
 ORDER BY 1,2
 
 --Looking at Countries with Highest Infection Rate compared to Population
@@ -68,7 +68,7 @@ WHERE continent IS NOT NULL
 GROUP BY location, population
 ORDER BY 3 DESC
 
---Let's break things down by continent
+
 --Showing continents with the highest death count 
 
 SELECT location,
