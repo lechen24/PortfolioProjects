@@ -64,6 +64,7 @@ SELECT d.location,
 FROM CovidDeath$ d
 JOIN CovidVac$ v
 ON d.location = v.location AND d.date = v.date
+WHERE d.continent IS NOT NULL
 GROUP BY d.location, d.population
 ORDER BY PercentNotFullyVaccinated DESC
 
