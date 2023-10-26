@@ -1,12 +1,12 @@
---Questions we want to answer:
---Global Numbers.
---Which country has the highest number of cases, the highest number of deaths, and death percentage?
---Percentage of people vacinated in each country.
---Predictive modeling for cases and deaths.
---Rolling period for total number of cases compared to total population.
+--Questions visualized:
+--1. Global Counts
+--2. Total Death Count per Continent
+--3. Projected Percent Population Infected with rolling date
+--4. Percent Population Infected by Country
 
---Global Numbers
+--1. Global Numbers
 --Incorporated continent IS NOT NULL to avoid duplicate data
+
 SELECT SUM(new_cases) AS TotalCases, 
 	SUM(new_deaths) AS TotalDeaths,
 	SUM(new_deaths)/SUM(new_cases) * 100 AS DeathPercentage
@@ -14,8 +14,60 @@ FROM CovidDeath$
 WHERE continent IS NOT NULL 
 ORDER BY 1 ASC
 
---Which country has the highest number of cases, the highest number of deaths, and death percentage?
+--2. Total Death Count per Continent
+--Filtered out unneccessary locations
+
+SELECT location,
+	SUM(CAST(new_deaths AS INT)) AS TotalDeathCount 
+FROM CovidDeath$
+WHERE continent IS NULL
+AND location NOT IN ('World', 
+					'European Union', 
+					'International', 
+					'High income', 
+					'Upper middle income', 
+					'Lower middle income', 
+					'Low income')
+GROUP BY location
+ORDER BY TotalDeathCount DESC
+
+--3. Projected Percent Population Infected with rolling date
+
+SELECT location,
+	continent,
+	population,
+	CAST(date AS date) AS date,
+	MAX(CONVERT(int,total_cases)) AS HighestInfectionCount,
+	MAX((total_cases/population)) * 100 AS PercentPopulationInfected
+FROM CovidDeath$
+GROUP BY location, 
+	continent,
+	population, 
+	date
+ORDER BY PercentPopulationInfected DESC
+
+--4. Projected Percent Population Infected by Country
+
+SELECT location,
+	continent,
+	population,
+	MAX(CONVERT(int,total_cases)) AS HighestInfectionCount,
+	MAX((total_cases/population))*100 AS PercentPopulationInfected
+FROM CovidDeath$
+GROUP BY location, 
+	continent,
+	population
+ORDER BY PercentPopulationInfected DESC
+
+--Questions to consider:
+--a. Number of cases, deaths, and death percentage per country
+--b. Percentage of people not fully vaccinated in each country.
+--c. Predictive modeling for cases and deaths.
+--d. Rolling period for total number of cases compared to total population.
+
+--a. Number of cases, deaths, and death percentage per country
 --Needed CASE for the divide by 0 error when SUM(new_cases) = 0
+
 SELECT location,
 	SUM(new_cases) AS TotalCases,
 	SUM(new_deaths) AS TotalDeaths,
@@ -52,7 +104,7 @@ WHERE continent IS NOT NULL
 GROUP BY location
 ORDER BY DeathPercentage DESC
 
---Percentage of people not fully vaccinated in each country.
+--b. Percentage of people not fully vaccinated in each country.
 
 SELECT d.location,
 	d.population,
@@ -68,15 +120,17 @@ WHERE d.continent IS NOT NULL
 GROUP BY d.location, d.population
 ORDER BY PercentNotFullyVaccinated DESC
 
---Predictive modeling for cases and deaths.
+--c. Predictive modeling for cases and deaths.
 
-SELECT date,
+SELECT CONVERT(date,date) AS date,
 	location,
-	new_cases
+	new_cases,
+	new_deaths
 FROM CovidDeath$
 WHERE continent IS NOT NULL
+ORDER BY date DESC
 
---Rolling period for total number of cases compared to total population.
+--d. Rolling period for total number of cases compared to total population.
 
 WITH cases_vs_population (location, date, population, new_cases, total_number_cases)
 AS (
